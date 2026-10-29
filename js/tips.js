@@ -1,6 +1,7 @@
 let tip_requests_users = new Set();
 let tip_last_reset_time = Date.now();
 let tip_cooldown_time = 1000 * 60 * 1;
+let tip_in_progress = false; // пока подсказка выдаётся — повторные вызовы игнорируем
 let tip_distance_tune_multiplier = 1.5; // механика подсказок такова что апишка контекстно дает слово вдвое ближе чем last_word_rank. мультипликатор нужен чтобы это поправить как нам надо. например: лучшая дистанция 100, мультипликатор 1.5, подсказка даст дальность 75 вместо 50.
 const tip_menu_button = document.getElementById('menu-button-tip');
 
@@ -19,9 +20,9 @@ const tip_progress_block = document.getElementById('tip-progress');
 const tip_progress_bar = document.querySelector('#tip-progress .bar');
 const tip_bulb = document.querySelector('#tip-progress .bulb');
 
-function update_tip_progress() {
+function update_tip_progress(completed = false) {
     let tip_required = Math.floor(uniqUsers.size / 2);
-    let tip_requests_count = tip_requests_users.size;
+    let tip_requests_count = completed ? tip_required : tip_requests_users.size;
 
     // Вычисляем прогресс один раз как число 0-100
     let progress = 0;
@@ -40,9 +41,12 @@ function update_tip_progress() {
 }
 
 async function use_tip(user = '', force = false) {
+    // Tips are unavailable on backends without a hint endpoint.
+    if (!backend_supports_tips()) return;
+    if (is_game_finished) return;
     // console.log('enter "use_tip"', user);
     if (user && tip_requests_users.has(user) && !force) return;
-    if (!best_found_distance) best_found_distance = kontekstno_api_tips_max_distance;
+    if (!best_found_distance) best_found_distance = backend_max_distance();
 
     let tip_time_left = tip_cooldown_time - (Date.now() - tip_last_reset_time);
     if (tip_time_left > 0 && !force) {
@@ -55,7 +59,7 @@ async function use_tip(user = '', force = false) {
     let tip_required = Math.floor(uniqUsers.size / 2); // сколько нужно людей для подсказки 
     // console.log('tip_requests:', tip_requests_count, 'tip_required:', tip_required);
 
-    update_tip_progress();
+    update_tip_progress(force);
     markOverlayActivity(); // высветляем оверлей при использовании подсказки тоже
 
     if (tip_requests_count < tip_required && !force) {
@@ -63,32 +67,44 @@ async function use_tip(user = '', force = false) {
         return;
     }
 
+    // гард ставим синхронно до await, иначе одновременные вызовы пройдут гейт
+    if (tip_in_progress) return;
+    tip_in_progress = true;
+
     // Play activation animation
     tip_progress_bar.classList.add('tip-activated');
 
-    // надо фейкануть дальность лучшего слова чтобы он не уполовинивал близость, а чуть подальше. Например мальтипликатор 1.5 даст 25% приближения вместо 50%
-    let fine_tuned_distance = Math.floor(best_found_distance * 1.5);
-
-    // иначе она всегда будет kontekstno_api_max_distance, это магическое число апишки, большую дальность она сбрасывает к kontekstno_api_max_distance
-    if (fine_tuned_distance > kontekstno_api_tips_max_distance) fine_tuned_distance = kontekstno_api_tips_max_distance;
-
-    // edge case. Если логика апишки (Math.ceil(fine_tuned_distance / 2)) даст такое же значение, как и текущий best_found_distance, то не фейкаем его, чтобы всё не циклилось
-    if (Math.ceil(fine_tuned_distance / 2) == best_found_distance) fine_tuned_distance = best_found_distance;
-
-    // запрос подсказки
-    const tip_word = await kontekstno_query({
-        method: 'tip',
-        challenge_id: secret_word_id,
-        last_word_rank: fine_tuned_distance
-    });
-    if (!tip_word.distance) {
+    // The hint request is built per-backend: kontekstno applies its own multiplier,
+    // wordgun uses best_found_distance directly as best_rank.
+    const tip_game_id = secret_word_id;
+    let tip_word;
+    try {
+        tip_word = await get_tip(tip_game_id, best_found_distance);
+    } catch (e) {
+        console.error('tip query failed', e);
+        abort_tip();
+        return;
+    }
+    if (is_game_finished || secret_word_id !== tip_game_id) {
+        abort_tip();
+        return;
+    }
+    // wordgun /hint returns { word: null } when no closer word remains — not an error,
+    // so give the user feedback instead of logging a misleading failure.
+    if (tip_word && tip_word.word === null) {
+        addTextToLastWords('Ближе слов для подсказки нет');
+        abort_tip();
+        return;
+    }
+    if (!tip_word?.distance) {
         console.error('tip_word.distance is undefined', tip_word);
-        tip_progress_bar.classList.remove('tip-activated');
+        abort_tip();
         return;
     }
     console.log('tip_word:', tip_word);
     best_found_distance = tip_word.distance; // обновляем текущую лучшую дальность
     console.log('best_found_distance after tip:', best_found_distance);
+    hints_used++;
 
     // Wait a bit for animation to show before resetting/hiding
     setTimeout(() => {
@@ -118,6 +134,15 @@ async function use_tip(user = '', force = false) {
 function reset_tips() {
     tip_requests_users.clear(); // очищаем список пользователей которые использовали подсказку
     tip_last_reset_time = Date.now(); // обновляем время последнего использования подсказки
+    tip_in_progress = false;
+    update_tip_progress();
+}
+
+// откат при ошибке: снимаем guard и чистим голоса, чтобы можно было переспросить. кулдаун не трогаем
+function abort_tip() {
+    tip_progress_bar.classList.remove('tip-activated');
+    tip_in_progress = false;
+    tip_requests_users.clear();
     update_tip_progress();
 }
 

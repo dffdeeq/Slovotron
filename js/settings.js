@@ -1,10 +1,19 @@
 const channelInput = document.getElementById("channel-name");
 const restartInput = document.getElementById("restart-time");
+const winSoundUrlInput = document.getElementById('win-sound-url');
 const avatarInput = document.getElementById('win-avatar-enable');
+const winNotificationInput = document.getElementById('win-notification-enable');
 const soundInput = document.getElementById('sound-enable');
+const manualGuessSettingInput = document.getElementById('manual-guess-enable');
+const manualGuessSection = document.getElementById('manual-guess');
 const saveBtn = document.getElementById('save-settings-btn');
 const obsLinkInput = document.getElementById('obs-link');
+const gameBackendInput = document.getElementById('game-backend');
+const backendWarning = document.getElementById('backend-warning');
+const wordgunDifficultyInput = document.getElementById('wordgun-difficulty');
+const wordgunSettingBlocks = document.querySelectorAll('.wordgun-setting');
 let validationTimeout;
+let wordgunOptionsLoaded = false;
 
 function parseBooleanSetting(value) {
     return String(value).toLowerCase() === 'true' || String(value) === '1';
@@ -12,6 +21,19 @@ function parseBooleanSetting(value) {
 
 function getSettingValue(urlParams, paramName, storageName) {
     return urlParams.has(paramName) ? urlParams.get(paramName) : localStorage.getItem(storageName);
+}
+
+function updateManualGuessVisibility() {
+    if (!manualGuessSection) return;
+    const shouldShow = manual_guess_enable
+        && manual_guess_ready
+        && !document.body.classList.contains('obs-overlay');
+    manualGuessSection.style.display = shouldShow ? 'flex' : 'none';
+}
+
+function setManualGuessReady(isReady) {
+    manual_guess_ready = Boolean(isReady);
+    updateManualGuessVisibility();
 }
 
 function generateObsLink() {
@@ -34,12 +56,30 @@ function generateObsLink() {
         params.set('restart_time', restartInput.value.trim());
     }
 
+    if (winSoundUrlInput && winSoundUrlInput.value.trim()) {
+        params.set('win_sound_url', winSoundUrlInput.value.trim());
+    }
+
     if (avatarInput) {
         params.set('win_avatar_enable', avatarInput.checked ? '1' : '0');
     }
 
+    if (winNotificationInput) {
+        params.set('win_notification_enable', winNotificationInput.checked ? '1' : '0');
+    }
+
     if (soundInput) {
         params.set('sound_enable', soundInput.checked ? '1' : '0');
+    }
+
+    if (gameBackendInput) {
+        params.set('backend', gameBackendInput.value);
+
+        // wordgun v2 difficulty: only meaningful for that backend, and an empty
+        // value already means "the whole vocabulary".
+        if (gameBackendInput.value === 'wordgun' && wordgunDifficultyInput && wordgunDifficultyInput.value) {
+            params.set('wg_difficulty', wordgunDifficultyInput.value);
+        }
     }
 
     if (webhook_url) {
@@ -124,8 +164,11 @@ function loadSettings() {
     }
     const storedChannel = urlChannel || localStorage.getItem('channel_name');
     const storedRestartTime = urlParams.get('restart_time') || localStorage.getItem('restart_time');
+    const storedWinSoundUrl = getSettingValue(urlParams, 'win_sound_url', 'win_sound_url');
     const storedAvatarInput = getSettingValue(urlParams, 'win_avatar_enable', 'win_avatar_enable');
+    const storedWinNotificationInput = getSettingValue(urlParams, 'win_notification_enable', 'win_notification_enable');
     const storedSoundInput = getSettingValue(urlParams, 'sound_enable', 'sound_enable');
+    const storedManualGuessInput = localStorage.getItem('manual_guess_enable');
 
     if (storedChannel) {
         channel_name = storedChannel;
@@ -133,8 +176,16 @@ function loadSettings() {
     }
 
     if (storedRestartTime) {
-        restart_time = parseInt(storedRestartTime, 10);
-        if (restartInput) restartInput.value = restart_time;
+        const parsed = parseInt(storedRestartTime, 10);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            restart_time = parsed;
+            if (restartInput) restartInput.value = restart_time;
+        }
+    }
+
+    if (storedWinSoundUrl !== null) {
+        win_sound_url = storedWinSoundUrl.trim();
+        if (winSoundUrlInput) winSoundUrlInput.value = win_sound_url;
     }
 
     if (storedAvatarInput !== null) {
@@ -142,10 +193,37 @@ function loadSettings() {
         if (avatarInput) avatarInput.checked = win_avatar_enable;
     }
 
+    win_notification_enable = storedWinNotificationInput === null ? true : parseBooleanSetting(storedWinNotificationInput);
+    if (winNotificationInput) winNotificationInput.checked = win_notification_enable;
+
     if (storedSoundInput !== null) {
         sound_enable = parseBooleanSetting(storedSoundInput);
         if (soundInput) soundInput.checked = sound_enable;
     }
+
+    if (storedManualGuessInput !== null) {
+        manual_guess_enable = parseBooleanSetting(storedManualGuessInput);
+        if (manualGuessSettingInput) manualGuessSettingInput.checked = manual_guess_enable;
+    }
+    updateManualGuessVisibility();
+
+    const storedBackend = urlParams.get('backend') || localStorage.getItem('game_backend');
+    if (storedBackend && GAME_BACKENDS[storedBackend]) {
+        game_backend = storedBackend;
+    }
+    if (gameBackendInput) gameBackendInput.value = game_backend;
+
+    // если ранее в obs был сохранен wg_difficulty, а затем ссылка была обновлена так, что этот параметр отсутствует, то ставим дефолтное значение, а не используем сохраненное
+    let storedWordgunDifficulty = localStorage.getItem('wordgun_difficulty') || '';
+    if (urlParams.get('backend') === 'wordgun') {
+        storedWordgunDifficulty = urlParams.get('wg_difficulty') || '';
+    }
+    wordgun_difficulty = storedWordgunDifficulty.trim();
+
+    // Show the stored value right away; the real option list arrives from GET /v2/get_model only once the settings panel is actually opened.
+    ensureSelectOption(wordgunDifficultyInput, wordgun_difficulty);
+
+    updateBackendSettings();
 
     // Генерируем ссылку OBS при загрузке страницы
     generateObsLink();
@@ -163,12 +241,45 @@ if (saveBtn) {
             localStorage.setItem('restart_time', restartInput.value.trim());
         }
 
+        if (winSoundUrlInput) {
+            win_sound_url = winSoundUrlInput.value.trim();
+            localStorage.setItem('win_sound_url', win_sound_url);
+        }
+
         if (avatarInput) {
             localStorage.setItem('win_avatar_enable', avatarInput.checked);
         }
 
+        if (winNotificationInput) {
+            win_notification_enable = winNotificationInput.checked;
+            localStorage.setItem('win_notification_enable', win_notification_enable);
+
+            // Обновляем параметр URL, чтобы loadSettings() не отменил сохранённый выбор.
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('win_notification_enable')) {
+                url.searchParams.set('win_notification_enable', win_notification_enable ? '1' : '0');
+                window.history.replaceState(window.history.state, '', url);
+            }
+        }
+
         if (soundInput) {
             localStorage.setItem('sound_enable', soundInput.checked);
+        }
+
+        if (manualGuessSettingInput) {
+            manual_guess_enable = manualGuessSettingInput.checked;
+            localStorage.setItem('manual_guess_enable', manual_guess_enable);
+            updateManualGuessVisibility();
+        }
+
+        if (gameBackendInput && GAME_BACKENDS[gameBackendInput.value]) {
+            game_backend = gameBackendInput.value;
+            localStorage.setItem('game_backend', game_backend);
+        }
+
+        if (wordgunDifficultyInput) {
+            wordgun_difficulty = wordgunDifficultyInput.value;
+            localStorage.setItem('wordgun_difficulty', wordgun_difficulty);
         }
 
         // Генерируем ссылку для OBS
@@ -183,7 +294,9 @@ if (saveBtn) {
 
 function checkFormsValidity() {
     if (saveBtn) {
-        saveBtn.disabled = !channelInput.validity.valid || !restartInput.validity.valid;
+        saveBtn.disabled = !channelInput.validity.valid
+            || !restartInput.validity.valid
+            || (winSoundUrlInput && !winSoundUrlInput.validity.valid);
     }
 }
 
@@ -252,9 +365,22 @@ if (restartInput) {
     });
 }
 
+if (winSoundUrlInput) {
+    winSoundUrlInput.addEventListener("input", () => {
+        winSoundUrlInput.reportValidity();
+        generateObsLink();
+        checkFormsValidity();
+    });
+}
+
 document.getElementById('menu-button-settings').addEventListener('click', () => {
     const settingsSection = document.getElementById('settings');
-    settingsSection.style.display = settingsSection.style.display === 'none' ? 'block' : 'none';
+    const willOpen = settingsSection.style.display === 'none';
+    settingsSection.style.display = willOpen ? 'block' : 'none';
+
+    if (willOpen && (gameBackendInput ? gameBackendInput.value : game_backend) === 'wordgun') {
+        loadWordgunOptions();
+    }
 });
 
 if (avatarInput) {
@@ -265,6 +391,91 @@ if (avatarInput) {
 
 if (soundInput) {
     soundInput.addEventListener("input", () => {
+        checkFormsValidity();
+    });
+}
+
+if (winNotificationInput) {
+    winNotificationInput.addEventListener("input", () => {
+        generateObsLink();
+        checkFormsValidity();
+    });
+}
+
+if (manualGuessSettingInput) {
+    manualGuessSettingInput.addEventListener("input", () => {
+        checkFormsValidity();
+    });
+}
+
+// Show the wordgun-only settings and its warning (the API can be region-blocked
+// from some RU IPs) only while that backend is selected.
+function updateBackendSettings() {
+    const selected = gameBackendInput ? gameBackendInput.value : game_backend;
+    const isWordgun = selected === 'wordgun';
+
+    if (backendWarning) {
+        backendWarning.style.display = isWordgun ? 'block' : 'none';
+    }
+
+    wordgunSettingBlocks.forEach((block) => {
+        block.style.display = isWordgun ? 'block' : 'none';
+    });
+}
+
+// Keep a stored value selectable even before (or without) the option list —
+// otherwise a saved model would silently reset to the default.
+// The tier id stands in for the label here: the real one is localized by the
+// server and only arrives with the option list, which replaces this option.
+function ensureSelectOption(select, value) {
+    if (!select || !value) return;
+    const exists = Array.from(select.options).some((option) => option.value === value);
+    if (!exists) select.add(new Option(value, value));
+    select.value = value;
+}
+
+// `tiers` is what wordgun_list_difficulties() returns: [{ name, label }], where
+// the label is the tier's name in the user's language as the server ships it.
+function fillSelectOptions(select, tiers, current, emptyLabel) {
+    if (!select) return;
+    select.innerHTML = '';
+    select.add(new Option(emptyLabel, ''));
+    tiers.forEach((tier) => select.add(new Option(tier.label, tier.name)));
+    if (current && !tiers.some((tier) => tier.name === current)) {
+        select.add(new Option(`${current} (недоступно)`, current));
+    }
+    select.value = current || '';
+}
+
+// Pull the difficulty tiers of the model we play from GET /v2/get_model. Called
+// lazily so the OBS overlay — which reads everything from the URL — never hits
+// the endpoint.
+async function loadWordgunOptions() {
+    if (wordgunOptionsLoaded || !wordgunDifficultyInput) return;
+
+    try {
+        const tiers = await wordgun_list_difficulties();
+        wordgunOptionsLoaded = true;
+        fillSelectOptions(wordgunDifficultyInput, tiers, wordgun_difficulty, 'Без ограничения');
+    } catch (error) {
+        // A failed lookup must not wipe the saved setting, so keep what we have.
+        console.warn('Не удалось загрузить список сложностей wordgun:', error);
+        ensureSelectOption(wordgunDifficultyInput, wordgun_difficulty);
+    }
+}
+
+if (gameBackendInput) {
+    gameBackendInput.addEventListener("change", () => {
+        updateBackendSettings();
+        if (gameBackendInput.value === 'wordgun') loadWordgunOptions();
+        generateObsLink();
+        checkFormsValidity();
+    });
+}
+
+if (wordgunDifficultyInput) {
+    wordgunDifficultyInput.addEventListener("change", () => {
+        generateObsLink();
         checkFormsValidity();
     });
 }

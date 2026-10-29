@@ -40,6 +40,19 @@ function addTextToLastWords(text = '') {
     addAnythingToLastWords(html);
 }
 
+function addWordStatusToLastWords(word = '', status = '') {
+    const banword_class = is_banword(word) ? ' banword' : '';
+    const html = `
+        <div class="msg${banword_class}">
+            <div class="msg-content">
+                <div class="word-and-distance">
+                    <div class="word">${render_word_html(word)} ${status}</div>
+                </div>
+            </div>
+        </div>`;
+    addAnythingToLastWords(html);
+}
+
 function getDistanceColor(distance) {
     const colors = [
         'linear-gradient(90deg,rgba(128, 0, 128, 0.5) 0%, rgba(128, 0, 128, 1) 100%);',
@@ -79,39 +92,49 @@ async function process_message(user, nickname_color, word, force_win = false) {
                 uniqUsers.add(user.username);
                 emit('uniqueGuessersAmountChanged');
             }
-            repeatWords++
+            repeatWords++;
         }
         // добавить слово в колонку .guessing .last-words в верх списка
-        addTextToLastWords(word + ' уже было использовано');
+        addWordStatusToLastWords(word, 'уже было использовано');
         // console.log(`Слово "${word}" уже было проверено.`);
-        return
+        return;
     }
 
     // Если слова нет — выполняем логику
     console.log(`Новое слово: ${word}. Обрабатываю...`);
     markOverlayActivity();
 
-    if (force_win) {
-        word_check = { distance: 1 };
-    } else {
-        word_check = await kontekstno_query({
-            method: 'score',
-            word: word,
-            challenge_id: secret_word_id
-        });
+    let word_check;
+
+    try {
+        if (force_win) {
+            word_check = { distance: 1 };
+        } else {
+            word_check = await score_word(word, secret_word_id);
+        }
+    } catch (err) {
+        // Any guess error can mean the game itself is gone (an expired token, for
+        // one), so ask the backend — the report stays the same either way.
+        if (await backend_game_is_live(secret_word_id) === false) {
+            console.warn('Игра больше не существует на сервере.');
+            addWordStatusToLastWords(word, 'Ошибка: Игра больше не существует.');
+            return;
+        }
+        console.warn('Ошибка проверки слова:', err);
+        addWordStatusToLastWords(word, 'ошибка API');
+        return;
     }
-    // console.log(word_check);
 
     checked_words.set(word, { distance: word_check.distance });
 
     if (!word_check.distance) {
-        addTextToLastWords(word + ' не найдено в словаре');
+        addWordStatusToLastWords(word, 'не найдено в словаре');
         // console.log(`Слово "${word}" не имеет дистанци.`);
-        return
+        return;
     }
 
     if (word_check.distance < best_found_distance) {
-        console.log('Щас мы запишем новую дистанцию из обычного процессинга слова:', word_check.distance);
+        console.log('Новая лучшая дистанция:', word_check.distance);
         best_found_distance = word_check.distance;
     }
 
@@ -120,11 +143,15 @@ async function process_message(user, nickname_color, word, force_win = false) {
         // if (typeof update_tip_progress === 'function') update_tip_progress();
         emit('uniqueGuessersAmountChanged');
     }
-    uniqWords++
+    uniqWords++;
 
     // готовый html шаблон слова
-    const new_message = message_template(word, word_check.distance, user['display-name'], nickname_color);
-
+    const new_message = message_template(
+        word,
+        word_check.distance,
+        user['display-name'],
+        nickname_color
+    );
     // добавить слово в колонку .guessing .last-words в верх списка
     addAnythingToLastWords(new_message);
 
@@ -133,7 +160,15 @@ async function process_message(user, nickname_color, word, force_win = false) {
 
     // обработка победы (слово угадано)
     if (word_check.distance == 1) {
+        const winNotification = !win_notification_enable || force_win ? null : {
+            channel_login: channel_name,
+            backend_id: getActiveBackend().id,
+            word_id: secret_word_id,
+            round_id: String(roundStartTime),
+            winner_login: user.username
+        };
         handle_win(user, word);
+        if (winNotification) sendWinNotification(winNotification);
     }
 
 }
@@ -178,13 +213,14 @@ function message_template(word, distance, name, nickname_color) {
 
     const width = Math.max(0, 100 - (distance / 2800) * 100);
     const distance_color = getDistanceColor(distance);
+    const banword_class = is_banword(word) ? ' banword' : '';
 
     return `
-        <div class="msg" data-distance="${distance}">
+        <div class="msg${banword_class}" data-distance="${distance}">
             <div class="msg-content">
                 <div class="bg" style="width: ${width}%; background: ${distance_color}"></div>
                 <div class="word-and-distance">
-                    <div class="word">${word}</div>
+                    <div class="word">${render_word_html(word)}</div>
                     <div class="distance">${distance}</div>
                 </div>
                 <div class="name" style="color: ${nickname_color}; white-space: nowrap;">
@@ -195,33 +231,56 @@ function message_template(word, distance, name, nickname_color) {
     `;
 }
 
+function play_win_sound() {
+    if (!sound_enable) return;
+
+    const play = (url) => {
+        const audio = new Audio(url);
+        audio.volume = WIN_SOUND_VOLUME;
+        audio.play().catch(e => console.error('Ошибка воспроизведения звука победы:', e));
+    };
+
+    play(DEFAULT_WIN_SOUND_URL);
+    if (win_sound_url) {
+        play(win_sound_url);
+    }
+}
+
 function handle_win(winner_user, winning_word = '') {
 
     is_game_finished = true;
+    setManualGuessReady(false);
     winTime = Date.now();
 
     tip_menu_button.style.display = 'none';
 
     if (typeof updateLeaderboard === 'function') {
-        updateLeaderboard(winner_user['display-name']);
+        updateLeaderboard(winner_user['user-id'], winner_user['display-name'], winner_user.username);
         const leaderboardSection = document.getElementById('leaderboard-statistic');
         if (leaderboardSection) leaderboardSection.style.display = 'flex';
     }
 
     const winnerAvatar = document.getElementById('winner-avatar');
-    winnerAvatar.src = '';
-    getTwitchUserData(winner_user.username).then((user) => {
-        console.log(user);
-        winnerAvatar.classList.toggle('blurred', !win_avatar_enable);
-        winnerAvatar.src = user.logo;
-    });
+    // Transparent 1x1 GIF placeholder avoids a broken-image icon when no avatar loads.
+    winnerAvatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    winnerAvatar.classList.toggle('blurred', !win_avatar_enable);
+    // Only hit the Twitch API when the avatar is actually shown. getTwitchUserData
+    // returns null on lookup failure, so guard before reading user.logo.
+    if (win_avatar_enable) {
+        getTwitchUserData(winner_user.username).then((user) => {
+            if (user?.logo) winnerAvatar.src = user.logo;
+        }).catch((e) => console.error('avatar load failed:', e));
+    }
 
     const winnerBlock = document.getElementById('winner');
     winnerBlock.querySelector('.winner-name').innerText = winner_user['display-name'];
     winnerBlock.style.display = 'block';
 
+    const roundDurationSec = roundStartTime ? Math.max(0, Math.floor((Date.now() - roundStartTime) / 1000)) : 0;
+
     sendWebhookEvent('game-win', {
         winner: {
+            id: winner_user['user-id'] || '',
             login: winner_user.username || '',
             display_name: winner_user['display-name'] || winner_user.username || ''
         },
@@ -229,16 +288,34 @@ function handle_win(winner_user, winning_word = '') {
         attempts_used: checked_words.size,
         unique_words: uniqWords,
         repeated_words: repeatWords,
-        round_duration_sec: roundStartTime ? Math.floor((Date.now() - roundStartTime) / 1000) : null
+        round_duration_sec: roundDurationSec
     });
+
+    if (typeof analytics_reach_goal === 'function') {
+        analytics_reach_goal('round_win', {
+            channel_name: channel_name,
+            game_backend: game_backend,
+            unique_players_count: uniqUsers.size,
+            total_guesses_count: checked_words.size,
+            round_duration_sec: roundDurationSec,
+            hints_used: typeof hints_used === 'number' ? hints_used : 0
+        });
+    }
 
     const resetTimeout = (typeof restart_time !== 'undefined' ? restart_time : 20) * 1000;
     let confettiTimeout = Date.now() + (restart_time - 5) * 1000;
     if (restart_time <= 10) { confettiTimeout = Date.now() + 5 * 1000 };
+    // A non-finite restart_time makes the stop check (timeLeft <= 0) never true,
+    // leaving confetti/fireworks running forever — clamp to a short fallback.
+    if (!Number.isFinite(confettiTimeout)) { confettiTimeout = Date.now() + 5 * 1000; }
+    // Never run confetti longer than the cap, even for huge restart_time values.
+    confettiTimeout = Math.min(confettiTimeout, Date.now() + MAX_CONFETTI_MS);
     confetti_stars(confetti_win(confettiTimeout));
     if (window.innerWidth > 1200) {
         confetti_fireworks(confettiTimeout);
     }
+
+    play_win_sound();
 
     if (restart_time > 0 && !document.hidden) {
         const menuTimer = document.getElementById('menu-timer');
@@ -283,19 +360,23 @@ async function resetRoundTimeout(time) {
         if (leaderboardSection) leaderboardSection.style.display = 'none';
 
         is_game_finished = false;
+        setManualGuessReady(true);
     }, time);
 }
 
 function reset_round() {
     last_words_container.innerHTML = '';
     best_match_container.innerHTML = '';
-    tip_menu_button.style.display = 'block';
+    stop_confetti();
+    // The tip mechanic only exists on backends that expose a hint endpoint.
+    tip_menu_button.style.display = backend_supports_tips() ? 'block' : 'none';
     checked_words.clear();
     roundStartTime = Date.now();
     uniqUsers.clear();
     uniqWords = repeatWords = 0;
+    hints_used = 0;
     reset_tips();
-    best_found_distance = kontekstno_api_tips_max_distance;
+    best_found_distance = backend_max_distance();
     markOverlayActivity();
 }
 

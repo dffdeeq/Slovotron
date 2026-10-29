@@ -1,21 +1,22 @@
+let streamerUser = null;
 
-
-function create_chat_connection(channel_name = '') {
+function create_chat_connection(channelName = '') {
 
     if (tmi_client) {
         tmi_client.disconnect().catch((err) => console.error('Error disconnecting:', err));
     }
 
     tmi_client = new tmi.Client({
-        channels: [channel_name]
+        channels: [channelName]
     });
-
-    // Подключаемся
-    tmi_client.connect();
 
     // Слушаем сообщения
     // user — это объект со всей инфой (цвет ника, бейджи, id сообщения и т.д.)
-    tmi_client.on('message', (channel, user, message, self) => {
+    tmi_client.on('message', async (channel, user, message, self) => {
+
+        if (user.badges?.broadcaster && user.username?.toLowerCase() === channel_name.toLowerCase()) {
+            streamerUser = { ...streamerUser, ...user };
+        }
 
         // console.log(channel, user, message);
 
@@ -24,8 +25,44 @@ function create_chat_connection(channel_name = '') {
         // console.log(user['display-name']);
 
         // проверка на подсказку, дальше не идем
-        if (message.toLowerCase().startsWith('!подска') || message.toLowerCase().startsWith('! подска')) {
-            use_tip(user['username']);
+        if (handle_tip_command(message, user['username'])) return;
+
+        // Проверяем на действия модераторов
+        const isModerator =
+            user.mod ||
+            user.badges?.broadcaster ||
+            user.badges?.lead_moderator ||
+            user.badges?.moderator;
+
+        const command = message.toLowerCase();
+        if (['!слв-топ', '!словотрон-топ'].includes(command.trim())) {
+            showLeaderboardTemporarily();
+            return;
+        }
+
+        const moderatorTipCommands = [
+            '!словотрон-подсказка',
+            '!слв-рестарт',
+            '!slovotron-hint',
+            '!slv-hint'
+        ];
+
+        if (isModerator && !is_game_finished && moderatorTipCommands.includes(command.trim())) {
+            if (backend_supports_tips()) use_tip(user['username'], true);
+            return;
+        }
+
+        if (isModerator && !is_game_finished && (command.startsWith('!sres') || command.startsWith('!словотрон-рес'))) {
+            is_game_finished = true;
+            setManualGuessReady(false);
+            secret_word_id = await generate_secret_word();
+            reset_round();
+            sendWebhookEvent('game-new', {
+                challenge_id: secret_word_id,
+                secret_word: current_secret_word_data?.secret_word || null
+            });
+            is_game_finished = false;
+            setManualGuessReady(true);
             return;
         }
 
@@ -34,73 +71,185 @@ function create_chat_connection(channel_name = '') {
             return;
         }
 
-        // если в сообщении больше двух слов, 20 символов, слишком короткое или число, то игнорируем
-        if (message.split(' ').length > 1 || message.length > 20 || message.length <= 1 || !isNaN(message)) return;
-
-        // Приводим ЛЕД и ЛЁД к одному виду
-        message = message.replace(/ё/gi, 'е');
-
-        // prevent xss attack 
-        // числа убираем тоже, потому что апишка контекстно зачем-то считает валидными+однинаковыми и слово СТОЛ и СТОЛ12345 (бредик да)
-        message = message.replace(/[^a-zA-Zа-яА-Я]/g, '');
-
-        // а можно вот так, останутся любые буквы любого языка. задел на мультиязычную версию.
-        // message = message.replace(/[^\p{L}]/gu, ''); 
-
-        if (message.length < 2) return;
-
-        words_count++;
-        if (words_count === 1) {
-            document.getElementById('info').style.display = 'none';
-            document.getElementById('settings').style.display = 'none';
-        }
-        wordQueue.push({ 'user': user, 'color': color, 'msg': message })
-        if (wordQueue.length === 1) {
-            runQueue()
-        }
+        enqueue_guess(user, color, message);
     });
 
+    // Подключаемся
+    return tmi_client.connect();
+}
+
+function handle_tip_command(message = '', username = '') {
+    if (typeof message !== 'string') return false;
+
+    const command = message.toLowerCase();
+    if (!command.startsWith('!подска') && !command.startsWith('! подска')) return false;
+
+    if (backend_supports_tips()) use_tip(username);
+    return true;
+}
+
+function normalize_guess(message = '') {
+    if (typeof message !== 'string') return '';
+    message = message.trim();
+
+    // если в сообщении больше двух слов, 20 символов, слишком короткое или число, то игнорируем
+    if (message.split(/\s+/).length > 1 || message.length > 20 || message.length <= 1 || !isNaN(message)) return '';
+
+    // Приводим ЛЕД и ЛЁД к одному виду
+    message = message.replace(/ё/gi, 'е');
+
+    // prevent xss attack
+    // числа убираем тоже, потому что апишка контекстно зачем-то считает валидными+однинаковыми и слово СТОЛ и СТОЛ12345 (бредик да)
+    message = message.replace(/[^a-zA-Zа-яА-Я\-]/g, '');
+
+    // а можно вот так, останутся любые буквы любого языка. задел на мультиязычную версию.
+    // message = message.replace(/[^\p{L}]/gu, '');
+
+    return message.length >= 2 ? message : '';
+}
+
+function enqueue_guess(user, color, message) {
+    const normalizedMessage = normalize_guess(message);
+    if (!normalizedMessage) return false;
+
+    words_count++;
+    if (words_count === 1) {
+        document.getElementById('info').style.display = 'none';
+        document.getElementById('settings').style.display = 'none';
+    }
+    wordQueue.push({ 'user': user, 'color': color, 'msg': normalizedMessage });
+    if (wordQueue.length === 1) {
+        runQueue();
+    }
+    return true;
 }
 
 async function runQueue() {
-    await process_message(wordQueue[0].user, wordQueue[0].color, wordQueue[0].msg)
-    wordQueue.shift()
-    if (wordQueue.length > 0) {
-        runQueue()
+    // Always shift the processed item, even if process_message throws.
+    // Otherwise the queue stalls forever and chat messages stop being handled.
+    while (wordQueue.length > 0) {
+        const { user, color, msg } = wordQueue[0];
+        try {
+            await process_message(user, color, msg);
+        } catch (e) {
+            console.error('process_message failed:', e);
+        } finally {
+            wordQueue.shift();
+        }
     }
 }
 
 // basic app init
 async function app() {
     try {
+        setManualGuessReady(false);
+        streamerUser = null;
         const ready = loadSettings();
 
         if (ready) {
 
             reset_round();
 
-            // получение секретного слова для отгадывания
-            secret_word_id = await generate_secret_word();
-            console.log('ID секретного слова: ', secret_word_id);
+            // получение секретного слова и данных стримера параллельно
+            const [secretId, twitchUser] = await Promise.all([
+                generate_secret_word(),
+                getTwitchUserData(channel_name).catch(e => {
+                    console.warn('Не удалось получить данные стримера для аналитики:', e);
+                    return null;
+                })
+            ]);
+
+            if (twitchUser) {
+                streamerUser = {
+                    username: twitchUser.login || channel_name,
+                    'display-name': twitchUser.displayName || channel_name,
+                    'user-id': twitchUser.id
+                };
+            }
+            secret_word_id = secretId;
+            console.log('Ключ игры: ', secret_word_id);
             sendWebhookEvent('game-new', {
                 challenge_id: secret_word_id,
                 secret_word: current_secret_word_data?.secret_word || null
             });
+            setManualGuessReady(true);
 
             // подключение к чату твича и начало получения сообщений
-            create_chat_connection(channel_name);
+            await create_chat_connection(channel_name).catch(e => {
+                console.warn('Не удалось дождаться подключения к чату Twitch:', e);
+            });
+
+            // TwitchTracker считает средний онлайн за последние 30 дней.
+            // Получаем его один раз за игровую сессию, после подключения к чату.
+            const twitchTrackerSummary = await getTwitchTrackerChannelSummary(channel_name);
 
             // отправка данных об использовании игры в аналитику
-            analytics_set_visit_params({ 'channel_name': channel_name });
-            analytics_reach_goal('game_start', { 'channel_name': channel_name });
+            const is_obs = document.body.classList.contains('obs-overlay') ? 1 : 0;
+            const startParams = {
+                channel_name: channel_name,
+                followers: typeof twitchUser?.followers === 'number' ? twitchUser.followers : 0,
+                chatterCount: typeof twitchUser?.chatterCount === 'number' ? twitchUser.chatterCount : 0,
+                is_obs: is_obs,
+                game_backend: game_backend
+            };
+
+            if (typeof twitchTrackerSummary?.avg_viewers === 'number') {
+                startParams.avg_viewers = twitchTrackerSummary.avg_viewers;
+            }
+
+            analytics_set_visit_params(startParams);
+            analytics_reach_goal('game_start', startParams);
 
         } else {
+            setManualGuessReady(false);
             document.getElementById('settings').style.display = 'block';
+            if (game_backend === 'wordgun') loadWordgunOptions();
         }
 
     } catch (error) {
+        setManualGuessReady(false);
         console.error(error);
     }
+}
+
+const manualGuessForm = document.getElementById('manual-guess-form');
+const manualGuessInput = document.getElementById('manual-guess-input');
+
+if (manualGuessForm && manualGuessInput) {
+    manualGuessForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        manualGuessInput.setCustomValidity('');
+
+        if (!manual_guess_ready || is_game_finished) {
+            manualGuessInput.setCustomValidity('Дождитесь начала следующего раунда.');
+            manualGuessInput.reportValidity();
+            return;
+        }
+
+        const streamer = streamerUser
+            ? { ...streamerUser }
+            : { username: channel_name, 'display-name': channel_name };
+        const message = manualGuessInput.value;
+
+        if (handle_tip_command(message, streamer.username)) {
+            manualGuessInput.value = '';
+            manualGuessInput.focus();
+            return;
+        }
+
+        if (!enqueue_guess(streamer, '#00FF00', message)) {
+            manualGuessInput.setCustomValidity('Введите одно слово от 2 до 20 букв.');
+            manualGuessInput.reportValidity();
+            return;
+        }
+
+        manualGuessInput.value = '';
+        manualGuessInput.focus();
+    });
+
+    manualGuessInput.addEventListener('input', () => {
+        manualGuessInput.setCustomValidity('');
+    });
 }
 
 app();

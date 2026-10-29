@@ -4,14 +4,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Словотрон 9000</title>
-    <meta name="description" content="Интерактивная игра в ассоциативное угадывание слов с интергацией чата Twitch">
-    <meta name="keywords" content="словотрон, twitch, игра, контекстно.рф">
+    <title>Словотрон — игра для Twitch-стримов</title>
+    <meta name="description"
+        content="Интерактивная браузерная игра в ассоциативное угадывание слов с интеграцией чата Twitch и оверлеем для OBS. Зрители стрима угадывают секретное слово по смысловой близости.">
+    <meta name="keywords"
+        content="словотрон, twitch игра, твич игра, контекстно рф, wordgun, игра со зрителями, оверлей для стрима, интерактив для стрима, игра в слова, ассоциации">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#151515">
+    <link rel="canonical" href="https://slovotron.fra3a.ru/">
+    <!-- Open Graph / Facebook / VK / Telegram / Discord -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://slovotron.fra3a.ru/">
+    <meta property="og:site_name" content="Словотрон 9000">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:title" content="Словотрон — Интерактивная игра для Twitch-стримов">
+    <meta property="og:description"
+        content="Интерактивная игра в ассоциативное угадывание слов с интеграцией чата Twitch и оверлеем для OBS. Угадывайте секретные слова вместе со зрителями!">
+    <meta property="og:image" content="https://slovotron.fra3a.ru/img/screenshots/gameplay.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1193">
+    <meta property="og:image:height" content="613">
+    <meta property="og:image:alt" content="Игровой процесс Словотрон 9000">
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://slovotron.fra3a.ru/">
+    <meta name="twitter:title" content="Словотрон 9000 — Интерактивная игра для Twitch-стримов">
+    <meta name="twitter:description"
+        content="Интерактивная игра в ассоциативное угадывание слов с интеграцией чата Twitch и оверлеем для OBS. Угадывайте секретные слова вместе со зрителями!">
+    <meta name="twitter:image" content="https://slovotron.fra3a.ru/img/screenshots/gameplay.png">
+    <meta name="twitter:image:alt" content="Игровой процесс Словотрон 9000">
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://slovotron.fra3a.ru/#website",
+                "url": "https://slovotron.fra3a.ru/",
+                "name": "Словотрон",
+                "description": "Интерактивная игра в ассоциативное угадывание слов для Twitch-стримов",
+                "inLanguage": "ru-RU"
+            },
+            {
+                "@type": "WebApplication",
+                "@id": "https://slovotron.fra3a.ru/#game",
+                "name": "Словотрон",
+                "alternateName": [
+                    "Slovotron",
+                    "Словотрон",
+                    "Slovotron"
+                ],
+                "url": "https://slovotron.fra3a.ru/",
+                "applicationCategory": "GameApplication",
+                "gamePlatform": "Web Browser",
+                "operatingSystem": "Any",
+                "browserRequirements": "Requires JavaScript. Requires HTML5.",
+                "genre": [
+                    "Word Game",
+                    "Puzzle",
+                    "Twitch Interactive Game"
+                ],
+                "inLanguage": "ru-RU",
+                "description": "Интерактивная браузерная игра в ассоциативное угадывание слов с интеграцией чата Twitch и оверлеем для OBS. Зрители стрима угадывают секретное слово по смысловой близости.",
+                "image": "https://slovotron.fra3a.ru/img/screenshots/gameplay.png",
+                "screenshot": [
+                    "https://slovotron.fra3a.ru/img/screenshots/gameplay.png",
+                    "https://slovotron.fra3a.ru/img/screenshots/settings.png",
+                    "https://slovotron.fra3a.ru/img/screenshots/win.png"
+                ],
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "RUB",
+                    "availability": "https://schema.org/InStock"
+                },
+                "author": {
+                    "@type": "Person",
+                    "name": "AnnaCodit",
+                    "url": "https://github.com/AnnaCodit"
+                },
+                "publisher": {
+                    "@type": "Person",
+                    "name": "AnnaCodit",
+                    "url": "https://github.com/AnnaCodit"
+                },
+                "sameAs": [
+                    "https://github.com/AnnaCodit/Slovotron"
+                ],
+                "featureList": [
+                    "Интеграция с чатом Twitch в реальном времени (tmi.js)",
+                    "Оверлей для стримов через OBS Studio",
+                    "Поддержка баз слов контекстно.рф и wordgun.ru",
+                    "Командные подсказки в чате (!подсказка)",
+                    "Таблица лидеров и статистика раунда",
+                    "Настраиваемый фон и звуковые эффекты"
+                ]
+            }
+        ]
+    }
+    </script>
     <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="css/style.css?v=__ASSETS_VERSION__">
     <link rel="stylesheet" href="css/settings.css?v=__ASSETS_VERSION__">
     <link rel="stylesheet" href="css/leaderboard.css?v=__ASSETS_VERSION__">
     <link rel="stylesheet" href="css/tips.css?v=__ASSETS_VERSION__">
+    <link rel="stylesheet" href="css/feedback.css?v=__ASSETS_VERSION__">
     <!-- Система отслеживания ошибок фронтэнда Sentry. В будущем можно попробовать еще LogRocket -->
     <script src="https://js.sentry-cdn.com/d96be4f9b0094010cb3a23e45d5e4bf6.min.js" crossorigin="anonymous"></script>
     <!-- Взаимодействие с твичом -->
@@ -24,16 +122,19 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap"
         rel="stylesheet">
+    <meta name="yandex-verification" content="24b12ac180916b0a" />
 </head>
 
 <body>
     <div id="custom-background"></div>
     <div class="page-width">
         <header class="main">
-            <a href="/" class="logo" title="Словотрон">
+            <a href="/" class="logo" title="Словотрон"
+                onclick="return confirm('Вы уверены, что хотите сбросить текущую игру?')">
                 <span class="icon">🧠</span>
-                <span class="text">СЛОВОТРОН</span>
-                <span class="level">9000</span>
+                <h1>СЛОВОТРОН</h1>
+                <!-- <span class="text">СЛОВОТРОН</span> -->
+                <!-- <span class="level">9000</span> -->
             </a>
             <nav>
                 <ul>
@@ -87,12 +188,41 @@
                             <div class="title">Перезапуск игры после победы (секунды)</div>
                             <input type="number" id="restart-time" name="restart_time" placeholder="20" min="0">
                         </div>
+                        <div class="setting">
+                            <div class="title" for="win-sound-url">Ссылка на звук победы</div>
+                            <input type="url" id="win-sound-url" name="win_sound_url"
+                                placeholder="Например: https://test.ru/win.mp3">
+                        </div>
                     </div>
                     <div class="ui-col">
+                        <div class="setting">
+                            <div class="title">Источник слов</div>
+                            <select id="game-backend" name="game_backend">
+                                <option value="kontekstno">контекстно.рф</option>
+                                <option value="wordgun">wordgun.ru</option>
+                            </select>
+                            <div id="backend-warning" class="backend-warning" style="display: none;"> ⚠️ wordgun.ru
+                                может работать некорректно с российских IP-адресов. Если игра не запускается,
+                                используйте VPN или выберите контекстно.рф. </div>
+                        </div>
+                        <div class="setting wordgun-setting" style="display: none;">
+                            <div class="title">Сложность</div>
+                            <select id="wordgun-difficulty" name="wordgun_difficulty">
+                                <option value=""></option>
+                            </select>
+                        </div>
                         <div class="setting checkbox-container">
                             <label class="title" for="win-avatar-enable">Показывать аватарку победителя?</label>
                             <div>
                                 <input type="checkbox" id="win-avatar-enable">
+                            </div>
+                        </div>
+                        <div class="setting checkbox-container">
+                            <label class="title" for="win-notification-enable"
+                                title='Чтобы обойти режим "только для фоловеров", добавьте бота FRA3A_bot в модераторы канала.'>Сообщать
+                                о победе в чате?</label>
+                            <div>
+                                <input type="checkbox" id="win-notification-enable" checked>
                             </div>
                         </div>
                         <div class="setting checkbox-container">
@@ -101,15 +231,34 @@
                                 <input type="checkbox" id="sound-enable" checked>
                             </div>
                         </div>
-                        <!-- <div class="setting">
-                <div class="title">Поле для добавления слова</div>
-                <input type="checkbox" id="allow-add-word-checkbox" name="allow-add-word">
-            </div> -->
+                        <div class="setting checkbox-container">
+                            <label class="title" for="manual-guess-enable"
+                                title='Возможность проверять слова прямо на сайте, не открывая чат Твича.'>Показывать
+                                поле для ввода слов?</label>
+                            <div>
+                                <input type="checkbox" id="manual-guess-enable">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="save-buttton-wrapper">
                     <div class="setting">
                         <button id="save-settings-btn" disabled>Сохранить</button>
+                    </div>
+                </div>
+            </div>
+            <div class="obs-link-box">
+                <div class="setting">
+                    <div class="title">
+                        <span>Оверлей для OBS</span>
+                        <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+                            <path fill="currentColor"
+                                d="M288 64C252.7 64 224 92.7 224 128L224 384C224 419.3 252.7 448 288 448L480 448C515.3 448 544 419.3 544 384L544 183.4C544 166 536.9 149.3 524.3 137.2L466.6 81.8C454.7 70.4 438.8 64 422.3 64L288 64zM160 192C124.7 192 96 220.7 96 256L96 512C96 547.3 124.7 576 160 576L352 576C387.3 576 416 547.3 416 512L416 496L352 496L352 512L160 512L160 256L176 256L176 192L160 192z" />
+                        </svg>
+                    </div>
+                    <div class="obs-link">
+                        <input type="text" id="obs-link" name="obs_link" placeholder="Сначала заполните название канала"
+                            disabled required>
                     </div>
                 </div>
             </div>
@@ -126,22 +275,6 @@
                         <span>Прозрачность:</span>
                         <input type="range" id="bg-opacity-slider" min="0" max="100" value="100">
                         <span id="bg-opacity-value">100%</span>
-                    </div>
-                </div>
-            </div>
-            <div class="obs-link-box">
-                <div class="setting">
-                    <div class="title">
-                        <span>Оверлей для OBS</span>
-                        <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 640 640"><!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.-->
-                            <path fill="currentColor"
-                                d="M288 64C252.7 64 224 92.7 224 128L224 384C224 419.3 252.7 448 288 448L480 448C515.3 448 544 419.3 544 384L544 183.4C544 166 536.9 149.3 524.3 137.2L466.6 81.8C454.7 70.4 438.8 64 422.3 64L288 64zM160 192C124.7 192 96 220.7 96 256L96 512C96 547.3 124.7 576 160 576L352 576C387.3 576 416 547.3 416 512L416 496L352 496L352 512L160 512L160 256L176 256L176 192L160 192z" />
-                        </svg>
-                    </div>
-                    <div class="obs-link">
-                        <input type="text" id="obs-link" name="obs_link" placeholder="Сначала заполните название канала"
-                            disabled required>
                     </div>
                 </div>
             </div>
@@ -194,6 +327,13 @@
             <span>Перезапуск через: </span>
             <span id="restart-timer-value">0</span>
         </section>
+        <section id="manual-guess" class="content-box" style="display: none;">
+            <form id="manual-guess-form">
+                <input type="text" id="manual-guess-input" aria-label="Слово для проверки" placeholder="Введите слово"
+                    minlength="2" maxlength="30" autocomplete="off" required>
+                <button type="submit" id="manual-guess-submit">Проверить</button>
+            </form>
+        </section>
         <section class="guessing">
             <div class="last-words"></div>
             <div class="best-match"></div>
@@ -210,17 +350,47 @@
     <footer class="tech-things">
         <span id="remove-test-user-from-leaderboard" title="удалить тестового пользователя из таблицы лидеров">.</span>
     </footer>
+    <button type="button" id="feedback-button" aria-haspopup="dialog" aria-controls="feedback-dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-10a9 9 0 0 1 18 0Z" stroke-linejoin="round" />
+            <path d="M7 11h8M7 15h5" stroke-linecap="round" />
+        </svg> Обратная связь </button>
+    <dialog id="feedback-dialog" aria-labelledby="feedback-title" aria-describedby="feedback-description">
+        <div class="feedback-heading">
+            <h2 id="feedback-title">Обратная связь</h2>
+            <button type="button" id="feedback-close" aria-label="Закрыть окно обратной связи">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="m6 6 12 12M18 6 6 18" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+        <p id="feedback-description">Привет! Я буду очень благодарна за любые отзывы и предложения по проекту. Если
+            задаете вопрос, не забудьте указать как с вами связаться =)</p>
+        <form id="feedback-form">
+            <label for="feedback-message">Ваше сообщение</label>
+            <textarea id="feedback-message" name="message" rows="6" maxlength="3000" placeholder=""
+                aria-describedby="feedback-limit" required autofocus></textarea>
+            <div class="feedback-meta">
+                <span id="feedback-limit">До 3000 символов</span>
+                <span id="feedback-counter" aria-hidden="true">0 / 3000</span>
+            </div>
+            <p id="feedback-status" role="status" aria-live="polite" aria-atomic="true"></p>
+            <button type="submit" id="feedback-submit" disabled>Отправить</button>
+        </form>
+    </dialog>
     <!-- Все основные скрипты -->
     <script src="js/config.js?v=__ASSETS_VERSION__"></script>
     <script src="js/api.js?v=__ASSETS_VERSION__"></script>
+    <script src="js/banwords.js?v=__ASSETS_VERSION__"></script>
     <script src="js/easter_eggs.js?v=__ASSETS_VERSION__"></script>
     <script src="js/ws.js?v=__ASSETS_VERSION__"></script>
     <script src="js/settings.js?v=__ASSETS_VERSION__"></script>
     <script src="js/background.js?v=__ASSETS_VERSION__"></script>
     <script src="js/leaderboard.js?v=__ASSETS_VERSION__"></script>
     <script src="js/tips.js?v=__ASSETS_VERSION__"></script>
-    <script src="js/init.js?v=__ASSETS_VERSION__"></script>
     <script src="js/confetti.js?v=__ASSETS_VERSION__"></script>
+    <script src="js/feedback.js?v=__ASSETS_VERSION__"></script>
+    <script src="js/init.js?v=__ASSETS_VERSION__"></script>
     <script src="js/analytics.js?v=__ASSETS_VERSION__"></script>
 </body>
 

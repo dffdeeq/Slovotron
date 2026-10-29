@@ -2,16 +2,26 @@
 let channel_name = '';
 let restart_time = 20;
 let win_avatar_enable = false;
+let win_notification_enable = true;
 let sound_enable = true;
+const DEFAULT_WIN_SOUND_URL = 'audio/slovotron-win.mp3';
+const WIN_SOUND_VOLUME = 0.5; // громкость победного звука: от 0 до 1
+let win_sound_url = '';
+let manual_guess_enable = false;
 let webhook_url = '';
 let webhook_secret = '';
+let game_backend = 'kontekstno'; // active word-guessing backend: 'kontekstno' | 'wordgun'
+const wordgun_model = 'best'; // wordgun v2 alias: always the best model the server ships; not user-configurable
+let wordgun_difficulty = ''; // wordgun v2 difficulty; empty = whole vocabulary
 let current_secret_word_data = null;
 
 // Состояние игры
 let secret_word_id = '';
 let words_count = 0;
 let is_game_finished = false;
+let manual_guess_ready = false;
 const MAX_LAST_WORDS = 20;
+const MAX_CONFETTI_MS = 30 * 1000; // cap confetti/fireworks at 30 seconds
 const kontekstno_api_tips_max_distance = 300; // апи подсказок не реагирует на число больше 300
 let best_found_distance = kontekstno_api_tips_max_distance; // контекстно API max distance
 
@@ -22,6 +32,7 @@ let resetTimerPaused;
 let roundStartTime;
 let uniqWords;
 let repeatWords;
+let hints_used = 0;
 let winTime;
 let uniqUsers = new Set();
 const checked_words = new Map();

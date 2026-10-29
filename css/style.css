@@ -142,6 +142,36 @@ section {
     display: none;
 }
 
+#manual-guess-form {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    gap: 10px;
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #222;
+}
+
+#manual-guess-input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 15px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background-color: #333;
+    color: #FFF;
+    font: inherit;
+}
+
+#manual-guess-input:focus {
+    outline: 2px solid #777;
+}
+
+#manual-guess-submit {
+    width: auto;
+    white-space: nowrap;
+}
+
 .guessing {
     display: flex;
     gap: 20px;
@@ -199,6 +229,22 @@ section {
     z-index: 1;
     text-transform: uppercase;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.banword-text {
+    display: inline-flex;
+    align-items: baseline;
+}
+
+.banword-first {
+    display: inline-block;
+}
+
+.banword-blur {
+    display: inline-block;
+    filter: blur(6px);
+    user-select: none;
+    pointer-events: none;
 }
 
 .guessing .distance {
@@ -352,6 +398,10 @@ body.has-custom-bg #info {
     padding: 20px;
 }
 
+body.has-custom-bg #manual-guess-form {
+    background-color: rgba(34, 34, 34, 0.82);
+}
+
 #custom-background {
     position: fixed;
     inset: 0;
@@ -376,7 +426,7 @@ body.has-custom-bg #info {
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 2rem;
+    font-size: 1.5rem;
     padding: 20px;
     z-index: 9999;
     animation: fadeInOpacity 0.5s ease-in-out;
@@ -389,6 +439,16 @@ body.has-custom-bg #info {
 .error-overlay .error-icon {
     font-size: 5rem;
     margin-bottom: 20px;
+}
+
+.error-overlay .error-close-btn {
+    margin-top: 24px;
+    padding: 10px 24px;
+    border: 0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 1rem;
+    cursor: pointer;
 }
 
 /* временный фикс для обс и Квантума */
@@ -430,9 +490,20 @@ body.has-custom-bg #info {
     }
 }
 
+@media all and (max-width: 550px) {
+    #manual-guess-form {
+        flex-direction: column;
+    }
+
+    #manual-guess-submit {
+        width: 100%;
+    }
+}
+
 /* Специальные стили для режима obs-overlay */
 /* .obs-overlay nav */
 .obs-overlay #info,
+.obs-overlay #manual-guess,
 .obs-overlay footer.main,
 .obs-overlay footer.tech-things {
     display: none;
